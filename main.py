@@ -1,9 +1,17 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from groq import Groq
 from decouple import config
+from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
+
 app = FastAPI(title="Speech-to-Text API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 GROQ_API_KEY = config("GROQ_API_KEY")
 TEMP_DIR = config("TEMP_DIR", default="temp_audio")
 os.makedirs(TEMP_DIR, exist_ok=True)
