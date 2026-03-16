@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceScript — Speech to Text API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a24;
+      --border: #2a2a38;
+      --accent: #6ee7b7;
+      --accent2: #818cf8;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --danger: #f87171;
+      --mono: 'DM Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(110,231,183,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(110,231,183,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-top: 1rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(110,231,183,0.08);
+      border: 1px solid rgba(110,231,183,0.2);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 1.2rem;
+    }
+
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 300;
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .card-body { padding: 1.5rem; }
+
+    /* Language selector */
+    .lang-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .lang-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .lang-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .lang-btn.active {
+      border-color: var(--accent);
+      background: rgba(110,231,183,0.08);
+      color: var(--accent);
+    }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(110,231,183,0.04);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      width: 48px; height: 48px;
+      margin: 0 auto 1rem;
+      background: var(--surface2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .drop-text { font-size: 0.95rem; color: var(--muted); }
+    .drop-text strong { color: var(--accent); font-weight: 500; }
+    .drop-hint { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      margin-bottom: 1.5rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Record button */
+    .record-area { text-align: center; }
+
+    .record-btn {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 28px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .record-btn:hover { border-color: var(--accent); transform: scale(1.05); }
+
+    .record-btn.recording {
+      border-color: var(--danger);
+      background: rgba(248,113,113,0.1);
+      animation: recordPulse 1.5s infinite;
+    }
+
+    @keyframes recordPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(248,113,113,0); }
+    }
+
+    .record-label {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6ee7b7, #818cf8);
+      color: #0a0a0f;
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 1.5rem;
+      letter-spacing: 0.01em;
+    }
+
+    .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Result */
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .result-card.show { display: block; }
+
+    .result-text {
+      padding: 1.5rem;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text);
+    }
+
+    .result-footer {
+      padding: 0.75rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .result-meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .copy-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Loading */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .loading.show { display: block; }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Error */
+    .error-msg {
+      display: none;
+      padding: 1rem 1.5rem;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: 10px;
+      color: var(--danger);
+      font-size: 14px;
+      margin-top: 1rem;
+    }
+
+    .error-msg.show { display: block; }
+
+    /* File selected */
+    .file-selected {
+      display: none;
+      padding: 10px 14px;
+      background: rgba(110,231,183,0.06);
+      border: 1px solid rgba(110,231,183,0.15);
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      margin-bottom: 0;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-selected.show { display: flex; }
+
+    /* API info */
+    .api-info {
+      margin-top: 2rem;
+      padding: 1rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .api-url {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .api-url span { color: var(--accent2); }
+
+    .api-link {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: none;
+      white-space: nowrap;
+      border: 1px solid rgba(110,231,183,0.2);
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .api-link:hover { background: rgba(110,231,183,0.08); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Live Demo</div>
+      <h1>Voice<span>Script</span></h1>
+      <p class="subtitle">Speech-to-text powered by Groq Whisper Large V3. Upload audio or record directly.</p>
+    </header>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">01 — Language</span>
+      </div>
+      <div class="card-body">
+        <div class="lang-selector">
+          <button class="lang-btn active" onclick="setLang('auto', this)">🌐 Auto Detect</button>
+          <button class="lang-btn" onclick="setLang('vi', this)">🇻🇳 Vietnamese</button>
+          <button class="lang-btn" onclick="setLang('en', this)">🇬🇧 English</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">02 — Audio Input</span>
+      </div>
+      <div class="card-body">
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".wav,.mp3,.m4a,.ogg" onchange="handleFileSelect(event)">
+          <div class="drop-icon">🎵</div>
+          <div class="drop-text"><strong>Click to upload</strong> or drag & drop</div>
+          <div class="drop-hint">.wav · .mp3 · .m4a · .ogg</div>
+        </div>
+
+        <div class="file-selected" id="fileSelected">
+          <span>📄</span>
+          <span id="fileName"></span>
+        </div>
+
+        <div class="divider">or record</div>
+
+        <div class="record-area">
+          <button class="record-btn" id="recordBtn" onclick="toggleRecord()">🎙️</button>
+          <span class="record-label" id="recordLabel">Hold to record</span>
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="transcribe()" disabled>
+          Transcribe Audio →
+        </button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Transcribing with Whisper Large V3...</div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="result-card" id="resultCard">
+      <div class="card-header">
+        <span class="card-title">Transcription Result</span>
+        <span class="result-meta" id="resultMeta"></span>
+      </div>
+      <div class="result-text" id="resultText"></div>
+      <div class="result-footer">
+        <span class="result-meta" id="resultLang"></span>
+        <button class="copy-btn" onclick="copyResult()">Copy text</button>
+      </div>
+    </div>
+
+    <div class="api-info">
+      <div class="api-url">
+        <span>POST</span> https://stt-api-xxxx.onrender.com<span>/transcribe</span>
+      </div>
+      <a class="api-link" href="https://stt-api-xxxx.onrender.com/docs" target="_blank">API Docs →</a>
+    </div>
+  </div>
+
+  <script>
+    // ── CONFIG ──────────────────────────────
+    const API_BASE = 'https://stt-api-uc2b.onrender.com'; 
+    // ────────────────────────────────────────
+
+    let selectedFile = null;
+    let selectedLang = 'auto';
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    function setLang(lang, btn) {
+      selectedLang = lang;
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      selectedFile = file;
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSelected').classList.add('show');
+      document.getElementById('submitBtn').disabled = false;
+    }
+
+    // Drag & drop
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        selectedFile = file;
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSelected').classList.add('show');
+        document.getElementById('submitBtn').disabled = false;
+      }
+    });
+
+    async function toggleRecord() {
+      if (isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('recordBtn').classList.remove('recording');
+        document.getElementById('recordLabel').textContent = 'Processing...';
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: 'audio/wav' });
+          selectedFile = new File([blob], 'recording.wav', { type: 'audio/wav' });
+          document.getElementById('fileName').textContent = 'recording.wav';
+          document.getElementById('fileSelected').classList.add('show');
+          document.getElementById('submitBtn').disabled = false;
+          document.getElementById('recordLabel').textContent = 'Recording saved ✓';
+          stream.getTracks().forEach(t => t.stop());
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('recordBtn').classList.add('recording');
+        document.getElementById('recordLabel').textContent = 'Recording... (click to stop)';
+      } catch {
+        showError('Microphone access denied. Please allow microphone permission.');
+      }
+    }
+
+    async function transcribe() {
+      if (!selectedFile) return;
+
+      hideError();
+      showLoading(true);
+      document.getElementById('resultCard').classList.remove('show');
+      document.getElementById('submitBtn').disabled = true;
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const url = selectedLang === 'auto'
+        ? `${API_BASE}/transcribe`
+        : `${API_BASE}/transcribe?language=${selectedLang}`;
+
+      try {
+        const res = await fetch(url, { method: 'POST', body: formData });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Transcription failed');
+        }
+
+        const data = await res.json();
+        showResult(data);
+      } catch (e) {
+        showError(e.message || 'Could not connect to API. Make sure the server is running.');
+      } finally {
+        showLoading(false);
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }
+
+    function showResult(data) {
+      document.getElementById('resultText').textContent = data.transcription;
+      document.getElementById('resultLang').textContent = `Language: ${data.language || 'auto'}`;
+      document.getElementById('resultMeta').textContent = `${data.filename}`;
+      document.getElementById('resultCard').classList.add('show');
+    }
+
+    function copyResult() {
+      const text = document.getElementById('resultText').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied ✓';
+        setTimeout(() => btn.textContent = 'Copy text', 2000);
+      });
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading').classList.toggle('show', show);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('errorMsg').classList.remove('show');
+    }
+  </script>
+</body>
+</html>
